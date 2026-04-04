@@ -1,0 +1,106 @@
+{
+  "gui": {
+    "window_title_comment": "主窗口标题",
+    "window_title": "Codex Handwork",
+
+    "default_password_comment": "界面中默认填入的账号密码，需要你自己填写",
+    "default_password": "请填写默认密码",
+
+    "callback_port_comment": "开始流程前要释放的本地端口",
+    "callback_port": 1455,
+
+    "nickname_length_comment": "自动生成昵称的字符长度",
+    "nickname_length": 6,
+
+    "status_message_timeout_ms_comment": "短提示显示时长（毫秒）",
+    "status_message_timeout_ms": 2000,
+
+    "auth_poll_interval_ms_comment": "轮询认证状态的时间间隔（毫秒）",
+    "auth_poll_interval_ms": 3000,
+
+    "code_poll_interval_seconds_comment": "轮询验证码的时间间隔（秒）",
+    "code_poll_interval_seconds": 7,
+
+    "account_count_refresh_delay_ms_comment": "注册成功后刷新账号数量前的等待时间（毫秒）",
+    "account_count_refresh_delay_ms": 3000,
+
+    "next_round_delay_ms_comment": "循环执行模式下开始下一轮前的等待时间（毫秒）",
+    "next_round_delay_ms": 5000
+  },
+  "mail": {
+    "url_comment": "邮件列表接口地址，需要你自己填写",
+    "url": "https://example.com/api/allEmail/list",
+
+    "authorization_comment": "请求邮件接口时使用的 authorization 值，需要你自己填写",
+    "authorization": "请填写邮件接口 authorization",
+
+    "request_timeout_seconds_comment": "邮件接口请求超时时间（秒）",
+    "request_timeout_seconds": 30,
+
+    "params_comment": "请求邮件列表时使用的查询参数，可按接口要求调整",
+    "params": {
+      "emailId": 0,
+      "size": 50,
+      "timeSort": 0,
+      "type": "receive",
+      "searchType": "name"
+    },
+
+    "headers_comment": "请求邮件接口时使用的静态请求头，authorization 会由上面的字段动态写入",
+    "headers": {
+      "accept": "application/json, text/plain, */*",
+      "accept-language": "zh",
+      "priority": "u=1, i",
+      "referer": "https://example.com/all-mail",
+      "sec-ch-ua": "\"Chromium\";v=\"146\", \"Not-A.Brand\";v=\"24\", \"Google Chrome\";v=\"146\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"macOS\"",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+    }
+  },
+  "oauth": {
+    "base_address_comment": "CPA 接口基础地址，只填 host:port，需要你自己填写",
+    "base_address": "127.0.0.1:8317",
+
+    "authorization_suffix_comment": "CPA 接口 Authorization 中 Bearer 后面的内容，需要你自己填写",
+    "authorization_suffix": "请填写CPA密码",
+
+    "request_timeout_seconds_comment": "本地管理接口请求超时时间（秒）",
+    "request_timeout_seconds": 30,
+
+    "auth_url_params_comment": "获取认证 URL 时附带的查询参数",
+    "auth_url_params": {
+      "is_webui": "true"
+    },
+
+    "headers_comment": "本地管理接口通用静态请求头，Authorization 和 Referer 会根据上面的字段动态生成",
+    "headers": {
+      "Accept": "application/json, text/plain, */*",
+      "Accept-Language": "zh-CN,zh;q=0.9",
+      "Connection": "keep-alive",
+      "Sec-Fetch-Dest": "empty",
+      "Sec-Fetch-Mode": "cors",
+      "Sec-Fetch-Site": "same-origin",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+      "sec-ch-ua": "\"Chromium\";v=\"146\", \"Not-A.Brand\";v=\"24\", \"Google Chrome\";v=\"146\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"macOS\""
+    }
+  },
+  "email": {
+    "prefix_comment": "生成邮箱时使用的前缀，需要你自己填写",
+    "prefix": "test",
+
+    "domain_comment": "生成邮箱时使用的域名，需要你自己填写",
+    "domain": "@example.com",
+
+    "min_index_comment": "邮箱编号最小值",
+    "min_index": 1,
+
+    "max_index_comment": "邮箱编号最大值",
+    "max_index": 99999
+  }
+}
