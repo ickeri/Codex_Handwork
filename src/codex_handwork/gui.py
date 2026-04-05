@@ -326,6 +326,7 @@ class CopyWindow(QWidget):
         self.session_id = 0
         self.current_state = None
         self.auth_status_loading = False
+        self._temp_client = None
         self.status_timer = QTimer(self)
         self.status_timer.timeout.connect(self.poll_auth_status)
         self.authDataLoaded.connect(self._apply_auth_data)
@@ -398,29 +399,42 @@ class CopyWindow(QWidget):
         self.code_input = self._add_row(main_layout, "验证码", "等待验证码", read_only=False)
         self.nickname_input = self._add_row(main_layout, "昵称", "等待生成昵称", read_only=True)
 
-        footer_row = QHBoxLayout()
-        footer_row.setSpacing(8)
-
-        self.status_label = QLabel("点击开始后自动生成邮箱并获取 URL")
-        self.status_label.setWordWrap(True)
-        footer_row.addWidget(self.status_label, 1)
-
-        footer_row.addStretch(1)
-
-        self.settings_button = QPushButton("配置")
-        self.settings_button.setFixedSize(96, 32)
-        self.settings_button.clicked.connect(self.open_settings_dialog)
-        footer_row.addWidget(self.settings_button)
+        # 上行：按钮区
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
 
         self.switch_email_button = QPushButton("换邮箱")
         self.switch_email_button.setFixedSize(96, 32)
         self.switch_email_button.clicked.connect(self.switch_temp_email)
         self.switch_email_button.setVisible(False)
-        footer_row.addWidget(self.switch_email_button)
+        btn_row.addWidget(self.switch_email_button)
+
+        self.refresh_code_button = QPushButton("刷新验证码")
+        self.refresh_code_button.setFixedSize(96, 32)
+        self.refresh_code_button.clicked.connect(self.refresh_code)
+        self.refresh_code_button.setVisible(False)
+        btn_row.addWidget(self.refresh_code_button)
+
+        btn_row.addStretch(1)
+
+        self.settings_button = QPushButton("配置")
+        self.settings_button.setFixedSize(96, 32)
+        self.settings_button.clicked.connect(self.open_settings_dialog)
+        btn_row.addWidget(self.settings_button)
+
+        main_layout.addLayout(btn_row)
+
+        # 下行：状态提示 + 账号数量
+        status_row = QHBoxLayout()
+        status_row.setSpacing(8)
+
+        self.status_label = QLabel("点击开始后自动生成邮箱并获取 URL")
+        self.status_label.setWordWrap(True)
+        status_row.addWidget(self.status_label, 1)
 
         self.account_count_title = QLabel("账号数量")
         self.account_count_title.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        footer_row.addWidget(self.account_count_title)
+        status_row.addWidget(self.account_count_title)
 
         self.account_count_label = QLabel("--")
         self.account_count_label.setObjectName("account_count_label")
@@ -428,9 +442,9 @@ class CopyWindow(QWidget):
         self.account_count_label.setFixedHeight(28)
         self.account_count_label.setMinimumWidth(54)
         self.account_count_label.setMaximumWidth(80)
-        footer_row.addWidget(self.account_count_label)
+        status_row.addWidget(self.account_count_label)
 
-        main_layout.addLayout(footer_row)
+        main_layout.addLayout(status_row)
         self.setLayout(main_layout)
         self.adjustSize()
         self.setFixedSize(self.sizeHint())
@@ -443,7 +457,9 @@ class CopyWindow(QWidget):
             self._show_short_status("配置已保存")
 
     def _update_switch_button_visibility(self):
-        self.switch_email_button.setVisible(self._email_provider() == "temp")
+        is_temp = self._email_provider() == "temp"
+        self.switch_email_button.setVisible(is_temp)
+        self.refresh_code_button.setVisible(True)
 
     def switch_temp_email(self):
         if not self.current_state:
@@ -454,6 +470,23 @@ class CopyWindow(QWidget):
         self.email_input.setText("正在切换临时邮箱...")
         self.status_label.setText("正在生成新临时邮箱...")
         threading.Thread(target=self._start_temp_mail_flow, args=(session_id,), daemon=True).start()
+
+    def refresh_code(self):
+        if not self.current_state:
+            self._show_short_status("请先点击开始获取 URL")
+            return
+        email = self.email_input.text().strip()
+        if not email:
+            return
+        session_id = self.session_id
+        self.code_input.clear()
+        self.status_label.setText("正在重新监听验证码...")
+        if self._email_provider() == "temp" and self._temp_client is not None:
+            threading.Thread(target=self._poll_code_loop, args=(session_id, email, self._temp_client), daemon=True).start()
+        elif self._email_provider() == "temp":
+            threading.Thread(target=self._start_temp_mail_flow, args=(session_id,), daemon=True).start()
+        else:
+            threading.Thread(target=self._poll_code_loop, args=(session_id, email, None), daemon=True).start()
 
     def _add_row(self, layout, label_text, placeholder, read_only=False, show_copy_button=True):
         row_layout = QHBoxLayout()
@@ -683,6 +716,7 @@ class CopyWindow(QWidget):
         except Exception as e:
             self.errorRaised.emit(session_id, f"临时邮箱生成失败: {e}")
             return
+        self._temp_client = client
         self.tempEmailReady.emit(session_id, email)
         threading.Thread(target=self._load_auth_data, args=(session_id,), daemon=True).start()
         threading.Thread(target=self._poll_code_loop, args=(session_id, email, client), daemon=True).start()
