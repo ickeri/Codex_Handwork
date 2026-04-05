@@ -1,4 +1,6 @@
+import platform
 import random
+import socket
 import string
 import subprocess
 import threading
@@ -505,7 +507,20 @@ class CopyWindow(QWidget):
     def _generate_nickname(self):
         return "".join(random.choice(string.ascii_lowercase) for _ in range(self._gui_settings()["nickname_length"]))
 
+    def _is_callback_port_available(self) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                sock.bind(("127.0.0.1", self._callback_port()))
+            except OSError:
+                return False
+        return True
+
     def _release_callback_port(self):
+        if self._is_callback_port_available():
+            return False
+        if platform.system() == "Windows":
+            raise RuntimeError(f"{self._callback_port()} 端口被占用，请关闭占用程序或修改配置中的回调端口")
         result = subprocess.run(
             ["lsof", "-ti", f"tcp:{self._callback_port()}"],
             capture_output=True,
@@ -514,7 +529,7 @@ class CopyWindow(QWidget):
         )
         pids = [pid.strip() for pid in result.stdout.splitlines() if pid.strip()]
         if not pids:
-            return False
+            raise RuntimeError(f"{self._callback_port()} 端口被占用，请先手动释放")
         subprocess.run(["kill", "-9", *pids], check=False)
         return True
 

@@ -12,8 +12,15 @@ dependencies = [
   "requests>=2.31.0",
 ]
 
+[project.scripts]
+codex-handwork = "codex_handwork.app:run"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+codex_handwork = ["assets/*.png"]

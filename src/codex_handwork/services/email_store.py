@@ -2,11 +2,12 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from codex_handwork.settings import get_settings
+from codex_handwork.settings import get_counter_data_dir, get_settings
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DATA_DIR = PROJECT_ROOT / "data"
+DATA_DIR = get_counter_data_dir()
 COUNTER_FILE = DATA_DIR / "email_counter.json"
+LEGACY_DATA_COUNTER_FILE = PROJECT_ROOT / "data" / "email_counter.json"
 LEGACY_COUNTER_FILE = PROJECT_ROOT / "email_counter.json"
 
 
@@ -40,6 +41,8 @@ def _read_counter_file(path: Path) -> dict:
 def load_counter() -> dict:
     if COUNTER_FILE.exists():
         return _read_counter_file(COUNTER_FILE)
+    if LEGACY_DATA_COUNTER_FILE.exists():
+        return _read_counter_file(LEGACY_DATA_COUNTER_FILE)
     if LEGACY_COUNTER_FILE.exists():
         return _read_counter_file(LEGACY_COUNTER_FILE)
     return _default_counter()

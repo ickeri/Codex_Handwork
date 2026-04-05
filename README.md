@@ -33,8 +33,16 @@ python3 -m pip install -r requirements.txt
 
 ## 启动方式
 
+源码目录下可直接运行：
+
 ```bash
-python3 gui.py
+python gui.py
+```
+
+安装为包后也可以直接运行：
+
+```bash
+codex-handwork
 ```
 
 ## 主要模块
@@ -48,10 +56,10 @@ python3 gui.py
 
 ## 数据说明
 
-- `data/email_counter.json`：记录已分配到的邮箱编号
+- `data/email_counter.json`：旧版本项目根目录中的邮箱编号文件，现版本会优先使用用户目录中的新位置
 - `src/codex_handwork/assets/background.png`：主界面背景图
 - `src/codex_handwork/assets/app_icon.png`：程序图标，同时也作为当前配置弹窗背景图
-- `settings.json`：统一配置文件，包含 GUI 参数、邮件接口、本地管理接口、邮箱生成规则，以及认证信息
+- `settings.json`：统一配置文件，现版本会优先写入用户自己的配置目录
 
 ## 页面展示
 
@@ -90,13 +98,14 @@ python3 gui.py
 
 ## settings.json 说明
 
-首次使用时，可以先把 `settings_example.json` 复制成 `settings.json`：
+首次使用时，如果用户目录里还没有 `settings.json`，程序会自动从 `settings_example.json` 初始化一份配置文件。
 
-```bash
-cp settings_example.json settings.json
-```
+复制后，把 `settings_example.json` 里标注“需要你自己填写”的内容改成你自己的真实配置即可，或者在 GUI 中配置。
 
-复制后，把 `settings_example.json` 里标注“需要你自己填写”的内容改成你自己的真实配置即可，或者在GUI中配置。
+当前版本中：
+- `settings.json` 会优先保存在用户自己的配置目录
+- `email_counter.json` 会优先保存在用户自己的数据目录
+- 旧项目根目录中的配置和计数文件仍会被兼容读取
 
 `settings.json` 主要分为四组。
 
