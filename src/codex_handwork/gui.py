@@ -595,7 +595,31 @@ class CopyWindow(QWidget):
         if self._is_callback_port_available():
             return False
         if platform.system() == "Windows":
-            raise RuntimeError(f"{self._callback_port()} 端口被占用，请关闭占用程序或修改配置中的回调端口")
+            result = subprocess.run(
+                ["netstat", "-ano", "-p", "tcp"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            port_suffix = f":{self._callback_port()}"
+            pids = []
+            for line in result.stdout.splitlines():
+                parts = line.split()
+                if len(parts) < 5 or parts[0].upper() != "TCP":
+                    continue
+                local_address = parts[1]
+                state = parts[3].upper()
+                pid = parts[4].strip()
+                if not local_address.endswith(port_suffix):
+                    continue
+                if state not in {"LISTENING", "ESTABLISHED", "TIME_WAIT", "CLOSE_WAIT"}:
+                    continue
+                if pid and pid not in pids:
+                    pids.append(pid)
+            if not pids:
+                raise RuntimeError(f"{self._callback_port()} 端口被占用，请先手动释放")
+            subprocess.run(["taskkill", "/F", "/PID", *pids], check=False)
+            return True
         result = subprocess.run(
             ["lsof", "-ti", f"tcp:{self._callback_port()}"],
             capture_output=True,
