@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QCheckBox,
     QDialog,
     QFormLayout,
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QRadioButton,
     QVBoxLayout,
     QWidget,
 )
@@ -26,6 +28,7 @@ from PySide6.QtWidgets import (
 from codex_handwork.services.count import get_auth_file_count
 from codex_handwork.services.email_store import allocate_next_email
 from codex_handwork.services.mail import find_code_by_email
+from codex_handwork.services.temp_mail import create_temp_mailbox, poll_code
 from codex_handwork.services.oauth import get_auth_url
 from codex_handwork.services.status import get_auth_status
 from codex_handwork.settings import get_settings, save_settings
@@ -66,9 +69,10 @@ class SettingsDialog(QDialog):
         self.background = QPixmap(str(SETTINGS_BACKGROUND_IMAGE))
         self.setWindowTitle("配置")
         self.setWindowIcon(build_window_icon())
-        self.resize(640, 420)
+        self.setMinimumWidth(640)
         self._build_ui()
         self._load_values()
+        self._adjust_dialog_size()
 
     def _build_ui(self):
         self.setAttribute(Qt.WA_StyledBackground, True)
@@ -153,6 +157,20 @@ class SettingsDialog(QDialog):
         form_layout.setHorizontalSpacing(16)
         form_layout.setVerticalSpacing(12)
 
+        # 邮箱模式选择
+        self._provider_group = QButtonGroup(self)
+        self._radio_configured = QRadioButton("配置邮箱")
+        self._radio_temp = QRadioButton("临时邮箱")
+        self._provider_group.addButton(self._radio_configured)
+        self._provider_group.addButton(self._radio_temp)
+        self._radio_configured.setChecked(True)
+        provider_row = QHBoxLayout()
+        provider_row.setSpacing(16)
+        provider_row.addWidget(self._radio_configured)
+        provider_row.addWidget(self._radio_temp)
+        provider_row.addStretch(1)
+        form_layout.addRow("邮箱模式", provider_row)
+
         self.default_password_input = QLineEdit()
         self.mail_url_input = QLineEdit()
         self.mail_url_input.setPlaceholderText("https://example.com/api/allEmail/list")
@@ -171,9 +189,18 @@ class SettingsDialog(QDialog):
         form_layout.addRow("邮件接口地址", self.mail_url_input)
         form_layout.addRow("邮件Authorization", self.mail_authorization_input)
         form_layout.addRow("CPA接口地址", self.oauth_base_address_input)
-        form_layout.addRow("CPAAuthorization", self.oauth_authorization_suffix_input)
+        form_layout.addRow("CPA密码", self.oauth_authorization_suffix_input)
         form_layout.addRow("邮箱前缀", self.email_prefix_input)
         form_layout.addRow("邮箱域名", self.email_domain_input)
+
+        # 记录配置邮箱专用行的索引（邮件接口地址、邮件Authorization、邮箱前缀、邮箱域名）
+        # form_layout row 0=邮箱模式, 1=默认密码, 2=邮件接口地址, 3=邮件Auth, 4=CPA地址, 5=CPAAuth, 6=邮箱前缀, 7=邮箱域名
+        self._configured_only_rows = [2, 3, 6, 7]
+        self._form_layout = form_layout
+
+        self._radio_configured.toggled.connect(self._update_field_visibility)
+        self._radio_temp.toggled.connect(self._update_field_visibility)
+
         panel_layout.addLayout(form_layout)
 
         button_row = QHBoxLayout()
@@ -213,8 +240,32 @@ class SettingsDialog(QDialog):
             return ""
         return text
 
+    def _adjust_dialog_size(self):
+        layout = self.layout()
+        if layout is None:
+            return
+        layout.activate()
+        self.adjustSize()
+        self.setFixedSize(self.sizeHint())
+
+    def _update_field_visibility(self):
+        show = self._radio_configured.isChecked()
+        for row in self._configured_only_rows:
+            label = self._form_layout.itemAt(row, QFormLayout.LabelRole)
+            field = self._form_layout.itemAt(row, QFormLayout.FieldRole)
+            if label and label.widget():
+                label.widget().setVisible(show)
+            if field and field.widget():
+                field.widget().setVisible(show)
+        self._adjust_dialog_size()
+
     def _load_values(self):
         settings = get_settings()
+        provider = settings.get("email", {}).get("provider", "configured")
+        if provider == "temp":
+            self._radio_temp.setChecked(True)
+        else:
+            self._radio_configured.setChecked(True)
         self.default_password_input.setText(
             self._display_value(settings["gui"].get("default_password", ""), ("请填写默认密码",))
         )
@@ -225,7 +276,7 @@ class SettingsDialog(QDialog):
             self._display_value(settings["mail"].get("authorization", ""), ("eyJ....", "请填写邮件接口 authorization"))
         )
         self.oauth_base_address_input.setText(
-            self._display_value(settings["oauth"].get("base_address", ""), ("127.0.0.1:8317",))
+            self._display_value(settings["oauth"].get("base_address", ""), ())
         )
         self.oauth_authorization_suffix_input.setText(
             self._display_value(settings["oauth"].get("authorization_suffix", ""), ("CPA密码", "请填写CPA密码"))
@@ -236,6 +287,7 @@ class SettingsDialog(QDialog):
         self.email_domain_input.setText(
             self._display_value(settings["email"].get("domain", ""), ("@example.com",))
         )
+        self._update_field_visibility()
 
     def save_settings(self):
         settings = get_settings()
@@ -248,6 +300,7 @@ class SettingsDialog(QDialog):
         settings["mail"]["authorization"] = self.mail_authorization_input.text().strip()
         settings["oauth"]["base_address"] = self.oauth_base_address_input.text().strip()
         settings["oauth"]["authorization_suffix"] = oauth_auth
+        settings["email"]["provider"] = "temp" if self._radio_temp.isChecked() else "configured"
         settings["email"]["prefix"] = self.email_prefix_input.text().strip()
         settings["email"]["domain"] = self.email_domain_input.text().strip()
         settings["oauth"].pop("cookies", None)
@@ -264,6 +317,7 @@ class CopyWindow(QWidget):
     codeLoaded = Signal(int, str)
     authStatusLoaded = Signal(int, object)
     accountCountLoaded = Signal(int, str)
+    tempEmailReady = Signal(int, str)
 
     def __init__(self):
         super().__init__()
@@ -279,6 +333,7 @@ class CopyWindow(QWidget):
         self.codeLoaded.connect(self._apply_code)
         self.authStatusLoaded.connect(self._apply_auth_status)
         self.accountCountLoaded.connect(self._apply_account_count)
+        self.tempEmailReady.connect(self._apply_temp_email)
         self._build_ui()
         self._apply_style()
         self._apply_window_flags()
@@ -357,6 +412,12 @@ class CopyWindow(QWidget):
         self.settings_button.clicked.connect(self.open_settings_dialog)
         footer_row.addWidget(self.settings_button)
 
+        self.switch_email_button = QPushButton("换邮箱")
+        self.switch_email_button.setFixedSize(96, 32)
+        self.switch_email_button.clicked.connect(self.switch_temp_email)
+        self.switch_email_button.setVisible(False)
+        footer_row.addWidget(self.switch_email_button)
+
         self.account_count_title = QLabel("账号数量")
         self.account_count_title.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         footer_row.addWidget(self.account_count_title)
@@ -378,7 +439,21 @@ class CopyWindow(QWidget):
         dialog = SettingsDialog(self, stays_on_top=self.pin_checkbox.isChecked())
         if dialog.exec():
             self._apply_runtime_settings()
+            self._update_switch_button_visibility()
             self._show_short_status("配置已保存")
+
+    def _update_switch_button_visibility(self):
+        self.switch_email_button.setVisible(self._email_provider() == "temp")
+
+    def switch_temp_email(self):
+        if not self.current_state:
+            self._show_short_status("请先点击开始获取 URL")
+            return
+        session_id = self.session_id
+        self.code_input.clear()
+        self.email_input.setText("正在切换临时邮箱...")
+        self.status_label.setText("正在生成新临时邮箱...")
+        threading.Thread(target=self._start_temp_mail_flow, args=(session_id,), daemon=True).start()
 
     def _add_row(self, layout, label_text, placeholder, read_only=False, show_copy_button=True):
         row_layout = QHBoxLayout()
@@ -533,6 +608,9 @@ class CopyWindow(QWidget):
         subprocess.run(["kill", "-9", *pids], check=False)
         return True
 
+    def _email_provider(self) -> str:
+        return self._settings().get("email", {}).get("provider", "configured")
+
     def start_flow(self):
         self.session_id += 1
         session_id = self.session_id
@@ -548,7 +626,6 @@ class CopyWindow(QWidget):
 
         try:
             released = self._release_callback_port()
-            email = allocate_next_email()
         except Exception as e:
             self.start_button.setEnabled(True)
             self.detect_status_label.setText("异常")
@@ -558,11 +635,33 @@ class CopyWindow(QWidget):
         if released:
             self._show_short_status(f"{self._callback_port()} 端口已释放")
 
-        self.email_input.setText(email)
-        self.password_input.setText(self._default_password())
+        provider = self._email_provider()
+        if provider == "temp":
+            self.email_input.setText("正在生成临时邮箱...")
+            self.password_input.setText(self._default_password())
+            threading.Thread(target=self._start_temp_mail_flow, args=(session_id,), daemon=True).start()
+        else:
+            try:
+                email = allocate_next_email()
+            except Exception as e:
+                self.start_button.setEnabled(True)
+                self.detect_status_label.setText("异常")
+                self.status_label.setText(f"生成邮箱失败: {e}")
+                return
+            self.email_input.setText(email)
+            self.password_input.setText(self._default_password())
+            threading.Thread(target=self._load_auth_data, args=(session_id,), daemon=True).start()
+            threading.Thread(target=self._poll_code_loop, args=(session_id, email, None), daemon=True).start()
 
+    def _start_temp_mail_flow(self, session_id):
+        try:
+            email, client = create_temp_mailbox()
+        except Exception as e:
+            self.errorRaised.emit(session_id, f"临时邮箱生成失败: {e}")
+            return
+        self.tempEmailReady.emit(session_id, email)
         threading.Thread(target=self._load_auth_data, args=(session_id,), daemon=True).start()
-        threading.Thread(target=self._poll_code_loop, args=(session_id, email), daemon=True).start()
+        threading.Thread(target=self._poll_code_loop, args=(session_id, email, client), daemon=True).start()
 
     def _load_auth_data(self, session_id):
         try:
@@ -599,17 +698,37 @@ class CopyWindow(QWidget):
         self.start_button.setEnabled(True)
         self.status_timer.stop()
 
-    def _poll_code_loop(self, session_id, email):
-        while session_id == self.session_id:
-            try:
-                code = find_code_by_email(email)
+    def _apply_temp_email(self, session_id, email):
+        if session_id != self.session_id:
+            return
+        self.email_input.setText(email)
+
+    def _poll_code_loop(self, session_id, email, client=None):
+        if client is not None:
+            # 临时邮箱模式：使用 poll_code
+            code = poll_code(
+                client, email,
+                stop_fn=lambda: session_id != self.session_id,
+                timeout_sec=180,
+                poll=self._gui_settings()["code_poll_interval_seconds"],
+            )
+            if session_id == self.session_id:
                 if code:
                     self.codeLoaded.emit(session_id, code)
+                else:
+                    self.errorRaised.emit(session_id, "临时邮箱验证码超时未收到")
+        else:
+            # 配置邮箱模式
+            while session_id == self.session_id:
+                try:
+                    code = find_code_by_email(email)
+                    if code:
+                        self.codeLoaded.emit(session_id, code)
+                        return
+                except Exception as e:
+                    self.errorRaised.emit(session_id, f"监听验证码失败: {e}")
                     return
-            except Exception as e:
-                self.errorRaised.emit(session_id, f"监听验证码失败: {e}")
-                return
-            time.sleep(self._gui_settings()["code_poll_interval_seconds"])
+                time.sleep(self._gui_settings()["code_poll_interval_seconds"])
 
     def _apply_code(self, session_id, code):
         if session_id != self.session_id:

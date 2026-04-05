@@ -4,7 +4,7 @@
     "window_title": "Codex Handwork",
 
     "default_password_comment": "界面中默认填入的账号密码，需要你自己填写",
-    "default_password": "请填写默认密码",
+    "default_password": "请填写注册codex的默认密码",
 
     "callback_port_comment": "开始流程前要释放的本地端口",
     "callback_port": 1455,
@@ -91,7 +91,10 @@
     }
   },
   "email": {
-    "prefix_comment": "生成邮箱时使用的前缀，需要你自己填写",
+    "provider_comment": "邮箱模式：configured = 使用配置的邮箱接口；temp = 使用临时邮箱（无需配置）",
+    "provider": "configured",
+
+    "prefix_comment": "生成邮箱时使用的前缀，需要你自己填写（仅 configured 模式使用）",
     "prefix": "test",
 
     "domain_comment": "生成邮箱时使用的域名，需要你自己填写",
