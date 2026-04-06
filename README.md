@@ -81,7 +81,7 @@ codex-handwork
 
 ### 配置页
 
-![配置页](src/codex_handwork/assets/deploy.png)
+![配置页](src/codex_handwork/assets/settingset.png)
 
 ## 配置按钮
 
