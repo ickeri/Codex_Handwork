@@ -25,7 +25,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from codex_handwork.services.count import get_auth_file_count
+from codex_handwork.services.cpa_upload import download_and_upload_auth_file
+from codex_handwork.services.count import get_account_count
 from codex_handwork.services.email_store import allocate_next_email
 from codex_handwork.services.mail import find_code_by_email
 from codex_handwork.services.temp_mail import create_temp_mailbox, poll_code
@@ -171,6 +172,15 @@ class SettingsDialog(QDialog):
         provider_row.addStretch(1)
         form_layout.addRow("邮箱模式", provider_row)
 
+        # 远端上传开关
+        self.cpa_upload_enabled_checkbox = QCheckBox("启用远端上传")
+        self.cpa_upload_enabled_checkbox.setChecked(True)
+        upload_switch_row = QHBoxLayout()
+        upload_switch_row.setSpacing(16)
+        upload_switch_row.addWidget(self.cpa_upload_enabled_checkbox)
+        upload_switch_row.addStretch(1)
+        form_layout.addRow("远端上传", upload_switch_row)
+
         self.default_password_input = QLineEdit()
         self.mail_url_input = QLineEdit()
         self.mail_url_input.setPlaceholderText("https://example.com/api/allEmail/list")
@@ -179,7 +189,11 @@ class SettingsDialog(QDialog):
         self.oauth_base_address_input = QLineEdit()
         self.oauth_base_address_input.setPlaceholderText("127.0.0.1:8317")
         self.oauth_authorization_suffix_input = QLineEdit()
-        self.oauth_authorization_suffix_input.setPlaceholderText("CPA密码")
+        self.oauth_authorization_suffix_input.setPlaceholderText("本地CPA密码")
+        self.cpa_upload_host_input = QLineEdit()
+        self.cpa_upload_host_input.setPlaceholderText("IP:端口")
+        self.cpa_upload_authorization_suffix_input = QLineEdit()
+        self.cpa_upload_authorization_suffix_input.setPlaceholderText("远端上传密码")
         self.email_prefix_input = QLineEdit()
         self.email_prefix_input.setPlaceholderText("test")
         self.email_domain_input = QLineEdit()
@@ -188,18 +202,21 @@ class SettingsDialog(QDialog):
         form_layout.addRow("默认密码", self.default_password_input)
         form_layout.addRow("邮件接口地址", self.mail_url_input)
         form_layout.addRow("邮件Authorization", self.mail_authorization_input)
-        form_layout.addRow("CPA接口地址", self.oauth_base_address_input)
-        form_layout.addRow("CPA密码", self.oauth_authorization_suffix_input)
+        form_layout.addRow("本地CPA地址", self.oauth_base_address_input)
+        form_layout.addRow("本地CPA密码", self.oauth_authorization_suffix_input)
+        form_layout.addRow("远端服务器", self.cpa_upload_host_input)
+        form_layout.addRow("远端上传密码", self.cpa_upload_authorization_suffix_input)
         form_layout.addRow("邮箱前缀", self.email_prefix_input)
         form_layout.addRow("邮箱域名", self.email_domain_input)
 
-        # 记录配置邮箱专用行的索引（邮件接口地址、邮件Authorization、邮箱前缀、邮箱域名）
-        # form_layout row 0=邮箱模式, 1=默认密码, 2=邮件接口地址, 3=邮件Auth, 4=CPA地址, 5=CPAAuth, 6=邮箱前缀, 7=邮箱域名
-        self._configured_only_rows = [2, 3, 6, 7]
+        # form_layout row 0=邮箱模式, 1=远端上传开关, 2=默认密码, 3=邮件接口地址, 4=邮件Auth, 5=本地CPA地址, 6=本地CPA密码, 7=远端服务器, 8=远端上传密码, 9=邮箱前缀, 10=邮箱域名
+        self._configured_only_rows = [3, 4, 9, 10]
+        self._upload_only_rows = [7, 8]
         self._form_layout = form_layout
 
         self._radio_configured.toggled.connect(self._update_field_visibility)
         self._radio_temp.toggled.connect(self._update_field_visibility)
+        self.cpa_upload_enabled_checkbox.stateChanged.connect(self._update_field_visibility)
 
         panel_layout.addLayout(form_layout)
 
@@ -249,15 +266,38 @@ class SettingsDialog(QDialog):
         self.setFixedSize(self.sizeHint())
 
     def _update_field_visibility(self):
-        show = self._radio_configured.isChecked()
+        show_configured = self._radio_configured.isChecked()
         for row in self._configured_only_rows:
             label = self._form_layout.itemAt(row, QFormLayout.LabelRole)
             field = self._form_layout.itemAt(row, QFormLayout.FieldRole)
             if label and label.widget():
-                label.widget().setVisible(show)
-            if field and field.widget():
-                field.widget().setVisible(show)
+                label.widget().setVisible(show_configured)
+            if field:
+                if field.widget():
+                    field.widget().setVisible(show_configured)
+                elif field.layout():
+                    self._set_layout_visible(field.layout(), show_configured)
+
+        show_upload = self.cpa_upload_enabled_checkbox.isChecked()
+        for row in self._upload_only_rows:
+            label = self._form_layout.itemAt(row, QFormLayout.LabelRole)
+            field = self._form_layout.itemAt(row, QFormLayout.FieldRole)
+            if label and label.widget():
+                label.widget().setVisible(show_upload)
+            if field:
+                if field.widget():
+                    field.widget().setVisible(show_upload)
+                elif field.layout():
+                    self._set_layout_visible(field.layout(), show_upload)
         self._adjust_dialog_size()
+
+    def _set_layout_visible(self, layout, visible):
+        for index in range(layout.count()):
+            item = layout.itemAt(index)
+            if item.widget():
+                item.widget().setVisible(visible)
+            elif item.layout():
+                self._set_layout_visible(item.layout(), visible)
 
     def _load_values(self):
         settings = get_settings()
@@ -266,6 +306,9 @@ class SettingsDialog(QDialog):
             self._radio_temp.setChecked(True)
         else:
             self._radio_configured.setChecked(True)
+
+        upload_settings = settings.get("cpa_upload", {})
+        self.cpa_upload_enabled_checkbox.setChecked(upload_settings.get("enabled", True))
         self.default_password_input.setText(
             self._display_value(settings["gui"].get("default_password", ""), ("请填写默认密码",))
         )
@@ -279,7 +322,13 @@ class SettingsDialog(QDialog):
             self._display_value(settings["oauth"].get("base_address", ""), ())
         )
         self.oauth_authorization_suffix_input.setText(
-            self._display_value(settings["oauth"].get("authorization_suffix", ""), ("CPA密码", "请填写CPA密码"))
+            self._display_value(settings["oauth"].get("authorization_suffix", ""), ("本地CPA密码", "CPA密码", "请填写本地CPA密码", "请填写CPA密码"))
+        )
+        self.cpa_upload_host_input.setText(
+            self._display_value(upload_settings.get("host", ""), ())
+        )
+        self.cpa_upload_authorization_suffix_input.setText(
+            self._display_value(upload_settings.get("authorization_suffix", ""), ("远端上传密码", "请填写远端上传密码"))
         )
         self.email_prefix_input.setText(
             self._display_value(settings["email"].get("prefix", ""), ("test",))
@@ -294,12 +343,23 @@ class SettingsDialog(QDialog):
         oauth_auth = self.oauth_authorization_suffix_input.text().strip()
         if oauth_auth.startswith("Bearer "):
             oauth_auth = oauth_auth[len("Bearer "):].strip()
+        upload_auth = self.cpa_upload_authorization_suffix_input.text().strip()
+        if upload_auth.startswith("Bearer "):
+            upload_auth = upload_auth[len("Bearer "):].strip()
 
         settings["gui"]["default_password"] = self.default_password_input.text().strip()
+        settings["gui"].pop("paste_mappings", None)
         settings["mail"]["url"] = self.mail_url_input.text().strip()
         settings["mail"]["authorization"] = self.mail_authorization_input.text().strip()
         settings["oauth"]["base_address"] = self.oauth_base_address_input.text().strip()
         settings["oauth"]["authorization_suffix"] = oauth_auth
+        settings.setdefault("oauth", {}).setdefault("auth_file_download_path", "/v0/management/auth-files/download")
+        settings["oauth"].setdefault("token_dir_name", "token")
+        upload_settings = settings.setdefault("cpa_upload", {})
+        upload_settings["enabled"] = self.cpa_upload_enabled_checkbox.isChecked()
+        upload_settings["host"] = self.cpa_upload_host_input.text().strip()
+        upload_settings["authorization_suffix"] = upload_auth
+        upload_settings.setdefault("request_timeout_seconds", settings["oauth"].get("request_timeout_seconds", 30))
         settings["email"]["provider"] = "temp" if self._radio_temp.isChecked() else "configured"
         settings["email"]["prefix"] = self.email_prefix_input.text().strip()
         settings["email"]["domain"] = self.email_domain_input.text().strip()
@@ -316,8 +376,10 @@ class CopyWindow(QWidget):
     errorRaised = Signal(int, str)
     codeLoaded = Signal(int, str)
     authStatusLoaded = Signal(int, object)
-    accountCountLoaded = Signal(int, str)
+    transferFinished = Signal(int, bool, str)
     tempEmailReady = Signal(int, str)
+    accountCountLoaded = Signal(int)
+    accountCountFailed = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -333,12 +395,15 @@ class CopyWindow(QWidget):
         self.errorRaised.connect(self._handle_error)
         self.codeLoaded.connect(self._apply_code)
         self.authStatusLoaded.connect(self._apply_auth_status)
-        self.accountCountLoaded.connect(self._apply_account_count)
+        self.transferFinished.connect(self._apply_transfer_result)
         self.tempEmailReady.connect(self._apply_temp_email)
+        self.accountCountLoaded.connect(self._apply_account_count)
+        self.accountCountFailed.connect(self._apply_account_count_error)
         self._build_ui()
         self._apply_style()
         self._apply_window_flags()
         self._apply_runtime_settings()
+        self._refresh_account_count()
 
     def _settings(self) -> dict:
         return get_settings()
@@ -424,7 +489,6 @@ class CopyWindow(QWidget):
 
         main_layout.addLayout(btn_row)
 
-        # 下行：状态提示 + 账号数量
         status_row = QHBoxLayout()
         status_row.setSpacing(8)
 
@@ -432,17 +496,18 @@ class CopyWindow(QWidget):
         self.status_label.setWordWrap(True)
         status_row.addWidget(self.status_label, 1)
 
-        self.account_count_title = QLabel("账号数量")
-        self.account_count_title.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        status_row.addWidget(self.account_count_title)
+        count_label = QLabel("账号数量")
+        count_label.setFixedWidth(56)
+        count_label.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
+        status_row.addWidget(count_label)
 
-        self.account_count_label = QLabel("--")
-        self.account_count_label.setObjectName("account_count_label")
-        self.account_count_label.setAlignment(Qt.AlignCenter)
-        self.account_count_label.setFixedHeight(28)
-        self.account_count_label.setMinimumWidth(54)
-        self.account_count_label.setMaximumWidth(80)
-        status_row.addWidget(self.account_count_label)
+        self.account_count_input = QLineEdit()
+        self.account_count_input.setReadOnly(True)
+        self.account_count_input.setFixedWidth(72)
+        self.account_count_input.setFixedHeight(32)
+        self.account_count_input.setAlignment(Qt.AlignCenter)
+        self.account_count_input.setText("0")
+        status_row.addWidget(self.account_count_input)
 
         main_layout.addLayout(status_row)
         self.setLayout(main_layout)
@@ -454,6 +519,7 @@ class CopyWindow(QWidget):
         if dialog.exec():
             self._apply_runtime_settings()
             self._update_switch_button_visibility()
+            self._refresh_account_count()
             self._show_short_status("配置已保存")
 
     def _update_switch_button_visibility(self):
@@ -543,13 +609,6 @@ class CopyWindow(QWidget):
                 color: #1f2937;
                 padding: 0 10px;
             }
-            #account_count_label {
-                background: rgba(255, 255, 255, 178);
-                border: 1px solid rgba(255, 255, 255, 165);
-                border-radius: 10px;
-                color: #1f2937;
-                padding: 0 8px;
-            }
             QLineEdit:focus {
                 background: rgba(255, 255, 255, 215);
                 border: 1px solid rgba(59, 130, 246, 225);
@@ -605,12 +664,18 @@ class CopyWindow(QWidget):
             self.status_label.setText("点击开始后自动生成邮箱并获取 URL")
 
     def copy_text(self, line_edit):
-        text = line_edit.text().strip()
-        if not text:
-            QMessageBox.information(self, "提示", "输入框内容为空")
+        text = self._get_line_edit_text(line_edit)
+        if text is None:
             return
         QApplication.clipboard().setText(text)
         self._show_short_status("已复制")
+
+    def _get_line_edit_text(self, line_edit):
+        text = line_edit.text().strip()
+        if not text:
+            QMessageBox.information(self, "提示", "输入框内容为空")
+            return None
+        return text
 
     def _generate_nickname(self):
         return "".join(random.choice(string.ascii_lowercase) for _ in range(self._gui_settings()["nickname_length"]))
@@ -809,26 +874,6 @@ class CopyWindow(QWidget):
         except Exception as e:
             self.errorRaised.emit(session_id, f"查询认证状态失败: {e}")
 
-    def _refresh_account_count(self, session_id):
-        try:
-            count = get_auth_file_count()
-            self.accountCountLoaded.emit(session_id, str(count))
-        except Exception as e:
-            self.errorRaised.emit(session_id, f"刷新账号数量失败: {e}")
-
-    def _apply_account_count(self, session_id, count_text):
-        if session_id != self.session_id:
-            return
-        self.account_count_label.setText(count_text)
-
-    def _schedule_account_count_refresh(self, session_id):
-        QTimer.singleShot(self._gui_settings()["account_count_refresh_delay_ms"], lambda: self._start_account_count_refresh_if_current(session_id))
-
-    def _start_account_count_refresh_if_current(self, session_id):
-        if session_id != self.session_id:
-            return
-        threading.Thread(target=self._refresh_account_count, args=(session_id,), daemon=True).start()
-
     def _schedule_next_round(self, session_id):
         QTimer.singleShot(self._gui_settings()["next_round_delay_ms"], lambda: self._start_next_round_if_current(session_id))
 
@@ -849,12 +894,9 @@ class CopyWindow(QWidget):
         if status == "ok":
             self.status_timer.stop()
             self.detect_status_label.setText("注册成功")
-            self._schedule_account_count_refresh(session_id)
-            if self.loop_checkbox.isChecked():
-                self.status_label.setText("注册成功，5 秒后开始下一轮")
-                self._schedule_next_round(session_id)
-            else:
-                self.status_label.setText("注册成功")
+            self.status_label.setText("注册成功，正在下载并上传认证文件...")
+            email = self.email_input.text().strip()
+            threading.Thread(target=self._transfer_auth_file, args=(session_id, email), daemon=True).start()
             return
         if status == "wait":
             self.detect_status_label.setText("注册中")
@@ -863,3 +905,49 @@ class CopyWindow(QWidget):
         self.status_timer.stop()
         self.detect_status_label.setText(f"异常: {status}")
         self.status_label.setText(f"认证状态异常: {status}")
+
+    def _transfer_auth_file(self, session_id, email):
+        try:
+            result = download_and_upload_auth_file(email)
+            self.transferFinished.emit(session_id, result.success, result.message)
+        except Exception as e:
+            self.transferFinished.emit(session_id, False, f"传输异常: {e}")
+
+    def _apply_transfer_result(self, session_id, success, message):
+        if session_id != self.session_id:
+            return
+        if success:
+            self.detect_status_label.setText("上传完成")
+            self.status_label.setText(f"✓ {message}")
+            self._refresh_account_count_delayed(session_id)
+            if self.loop_checkbox.isChecked():
+                self.status_label.setText(f"✓ {message}，5 秒后开始下一轮")
+                self._schedule_next_round(session_id)
+        else:
+            self.detect_status_label.setText("上传失败")
+            self.status_label.setText(f"✗ {message}")
+
+    def _refresh_account_count(self):
+        threading.Thread(target=self._load_account_count, daemon=True).start()
+
+    def _refresh_account_count_delayed(self, session_id):
+        delay = self._gui_settings().get("account_count_refresh_delay_ms", 3000)
+        QTimer.singleShot(delay, lambda: self._refresh_if_current(session_id))
+
+    def _refresh_if_current(self, session_id):
+        if session_id == self.session_id:
+            self._refresh_account_count()
+
+    def _load_account_count(self):
+        try:
+            count = get_account_count()
+            self.accountCountLoaded.emit(count)
+        except Exception as e:
+            self.accountCountFailed.emit(str(e))
+
+    def _apply_account_count(self, count):
+        self.account_count_input.setText(str(count))
+
+    def _apply_account_count_error(self, message):
+        self.account_count_input.setText("--")
+        self.status_label.setText(f"账号数量获取失败: {message}")

@@ -21,11 +21,9 @@
     "code_poll_interval_seconds_comment": "轮询验证码的时间间隔（秒）",
     "code_poll_interval_seconds": 7,
 
-    "account_count_refresh_delay_ms_comment": "注册成功后刷新账号数量前的等待时间（毫秒）",
-    "account_count_refresh_delay_ms": 3000,
-
     "next_round_delay_ms_comment": "循环执行模式下开始下一轮前的等待时间（毫秒）",
-    "next_round_delay_ms": 5000
+    "next_round_delay_ms": 5000,
+
   },
   "mail": {
     "url_comment": "邮件列表接口地址，需要你自己填写",
@@ -62,11 +60,11 @@
     }
   },
   "oauth": {
-    "base_address_comment": "CPA 接口基础地址，只填 host:port，需要你自己填写",
+    "base_address_comment": "本地 CPA 管理接口地址，只填 host:port，需要你自己填写",
     "base_address": "127.0.0.1:8317",
 
-    "authorization_suffix_comment": "CPA 接口 Authorization 中 Bearer 后面的内容，需要你自己填写",
-    "authorization_suffix": "请填写CPA密码",
+    "authorization_suffix_comment": "本地 CPA 接口 Authorization 中 Bearer 后面的内容，需要你自己填写",
+    "authorization_suffix": "请填写本地CPA密码",
 
     "request_timeout_seconds_comment": "本地管理接口请求超时时间（秒）",
     "request_timeout_seconds": 30,
@@ -75,6 +73,12 @@
     "auth_url_params": {
       "is_webui": "true"
     },
+
+    "auth_file_download_path_comment": "注册成功后下载 auth json 使用的本地 CPA 路径",
+    "auth_file_download_path": "/v0/management/auth-files/download",
+
+    "token_dir_name_comment": "下载后的 token 文件夹名称，创建在当前项目根目录下",
+    "token_dir_name": "token",
 
     "headers_comment": "本地管理接口通用静态请求头，Authorization 和 Referer 会根据上面的字段动态生成",
     "headers": {
@@ -89,6 +93,17 @@
       "sec-ch-ua-mobile": "?0",
       "sec-ch-ua-platform": "\"macOS\""
     }
+  },
+  "cpa_upload": {
+    "enabled_comment": "是否启用远端上传",
+    "enabled": true,
+
+    "host_comment": "远端上传服务器地址（IP:端口），需要你自己填写",
+    "host": "127.0.0.1:8317",
+    "authorization_suffix_comment": "远端上传密码（Authorization Bearer 后面的内容），需要你自己填写",
+    "authorization_suffix": "请填写远端上传密码",
+    "request_timeout_seconds_comment": "远端上传接口请求超时时间（秒）",
+    "request_timeout_seconds": 30
   },
   "email": {
     "provider_comment": "邮箱模式：configured = 使用配置的邮箱接口；temp = 使用临时邮箱（无需配置）",

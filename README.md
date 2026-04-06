@@ -3,9 +3,9 @@
 
 前言：由于采用自动化或协议来注册codex时，会出现手机验证码，特意开发了一个可以支持屏幕悬停的手动注册工具，目前该工具支持cloudmail自建邮箱和临时邮箱模式。
 
-功能：自动获取cpa的codex-oauth登入链接，获取后自动复制到粘贴板，生成设定好的邮箱和密码，只需要设置邮箱的域名和前缀(所以给一个值段，如test，则生成的邮箱为test00001@cloudmail.com，到99999)，并自动获取验证码进入粘贴板（注意：到验证码界面时需要点击重新获取邮箱才会收到验证码)，注册完成后会自动回调到cpa中，并自动刷新账号数量，轮训状态每次注册成功后都会休眠5秒后再次进入注册流程。
+功能：自动获取 cpa 的 codex-oauth 登录链接，获取后自动复制到剪贴板，生成设定好的邮箱和密码，只需要设置邮箱的域名和前缀（所以给一个值段，如 test，则生成的邮箱为 test00001@cloudmail.com，到 99999），并自动获取验证码进入剪贴板（注意：到验证码界面时需要点击重新获取邮箱才会收到验证码）。注册完成后会自动回调到本地 CPA；当前版本的远端上传功能已暂时停用，等待新的上传逻辑接入。
 
-一个基于 PySide6 的桌面工具，用于串联邮箱生成、认证 URL 获取、验证码轮询、认证状态查询和账号数量统计流程。
+一个基于 PySide6 的桌面工具，用于串联邮箱生成、认证 URL 获取、验证码轮询和认证状态查询流程。
 
 ## 项目结构
 
@@ -34,10 +34,16 @@ python3 -m pip install -r requirements.txt
 
 ## 启动方式
 
-源码目录下可直接运行：
+先安装依赖：
 
 ```bash
-python gui.py
+python3 -m pip install -r requirements.txt
+```
+
+源码目录下直接运行：
+
+```bash
+PYTHONPATH=src python3 -m codex_handwork.app
 ```
 
 安装为包后也可以直接运行：
@@ -53,7 +59,6 @@ codex-handwork
 - `src/codex_handwork/services/mail.py`：邮件与验证码查询
 - `src/codex_handwork/services/oauth.py`：认证 URL 获取
 - `src/codex_handwork/services/status.py`：认证状态查询
-- `src/codex_handwork/services/count.py`：账号数量统计
 
 ## 数据说明
 
@@ -74,15 +79,15 @@ codex-handwork
 
 ## 配置按钮
 
-主界面底部与账号数量同一行新增了 `配置` 按钮。
+主界面底部提供了 `配置` 按钮。
 
 点击后会弹出配置表单，可直接修改以下内容：
 
 - 默认密码
 - 邮件列表接口地址
 - 邮件接口 `authorization`
-- CPA 接口基础地址（只填 `127.0.0.1:8317` 这种 `host:port`）
-- CPA 接口 `Authorization` 的 `Bearer ` 后半段
+- 本地 CPA 地址（只填 `127.0.0.1:8317` 这种 `host:port`）
+- 本地 CPA 密码
 - 邮箱前缀
 - 邮箱域名
 
@@ -109,6 +114,7 @@ codex-handwork
 - `settings.json` 会优先保存在用户自己的配置目录
 - `email_counter.json` 会优先保存在用户自己的数据目录
 - 旧项目根目录中的配置和计数文件仍会被兼容读取
+- 远端上传功能已暂时停用，当前无需配置远端 CPA
 
 `settings.json` 主要分为四组。
 
@@ -124,7 +130,6 @@ codex-handwork
     "status_message_timeout_ms": 2000,
     "auth_poll_interval_ms": 3000,
     "code_poll_interval_seconds": 7,
-    "account_count_refresh_delay_ms": 3000,
     "next_round_delay_ms": 5000
   },
   "mail": {
@@ -178,7 +183,6 @@ codex-handwork
 - `status_message_timeout_ms`：短提示显示时长
 - `auth_poll_interval_ms`：认证状态轮询间隔
 - `code_poll_interval_seconds`：验证码轮询间隔
-- `account_count_refresh_delay_ms`：注册成功后刷新账号数量前的等待时间
 - `next_round_delay_ms`：循环执行模式下下一轮开始前的等待时间
 
 ### 2. `mail`
@@ -197,24 +201,21 @@ codex-handwork
 
 本地 CPA 管理接口相关配置：
 
-- `base_address`：接口基础地址，只填写 `host:port`
-- `authorization_suffix`：`Authorization: Bearer xxx` 中 `xxx` 的部分
+- `base_address`：本地接口基础地址，只填写 `host:port`
+- `authorization_suffix`：本地 `Authorization: Bearer xxx` 中 `xxx` 的部分
 - `request_timeout_seconds`：请求超时秒数
 - `auth_url_params`：获取认证 URL 时附带的查询参数
 - `headers`：通用静态请求头
 
-说明：程序运行时会根据 `base_address` 自动拼出以下接口地址：
+说明：程序运行时会根据 `base_address` 自动拼出以下本地接口地址：
 
 - `http://{base_address}/v0/management/codex-auth-url`
 - `http://{base_address}/v0/management/get-auth-status`
-- `http://{base_address}/v0/management/auth-files`
 
 同时会自动生成：
 
 - `Authorization: Bearer {authorization_suffix}`
 - `Referer: http://{base_address}/management.html`
-
-当前配置结构里已经不再使用 Cookie。
 
 ### 4. `email`
 
