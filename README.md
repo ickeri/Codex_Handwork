@@ -40,7 +40,13 @@ python3 -m pip install -r requirements.txt
 python3 -m pip install -r requirements.txt
 ```
 
-源码目录下直接运行：
+源码目录下可直接运行根目录启动脚本：
+
+```bash
+python3 gui.py
+```
+
+也可以用模块方式启动：
 
 ```bash
 PYTHONPATH=src python3 -m codex_handwork.app
