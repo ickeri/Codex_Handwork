@@ -4,7 +4,7 @@
     "window_title": "Codex Handwork",
 
     "default_password_comment": "界面中默认填入的账号密码，需要你自己填写",
-    "default_password": "请填写注册codex的默认密码",
+    "default_password": "",
 
     "callback_port_comment": "开始流程前要释放的本地端口",
     "callback_port": 1455,
@@ -22,15 +22,14 @@
     "code_poll_interval_seconds": 7,
 
     "next_round_delay_ms_comment": "循环执行模式下开始下一轮前的等待时间（毫秒）",
-    "next_round_delay_ms": 5000,
-
+    "next_round_delay_ms": 5000
   },
   "mail": {
     "url_comment": "邮件列表接口地址，需要你自己填写",
-    "url": "https://example.com/api/allEmail/list",
+    "url": "",
 
     "authorization_comment": "请求邮件接口时使用的 authorization 值，需要你自己填写",
-    "authorization": "请填写邮件接口 authorization",
+    "authorization": "",
 
     "request_timeout_seconds_comment": "邮件接口请求超时时间（秒）",
     "request_timeout_seconds": 30,
@@ -61,10 +60,10 @@
   },
   "oauth": {
     "base_address_comment": "本地 CPA 管理接口地址，只填 host:port，需要你自己填写",
-    "base_address": "127.0.0.1:8317",
+    "base_address": "",
 
     "authorization_suffix_comment": "本地 CPA 接口 Authorization 中 Bearer 后面的内容，需要你自己填写",
-    "authorization_suffix": "请填写本地CPA密码",
+    "authorization_suffix": "",
 
     "request_timeout_seconds_comment": "本地管理接口请求超时时间（秒）",
     "request_timeout_seconds": 30,
@@ -99,9 +98,9 @@
     "enabled": true,
 
     "host_comment": "远端上传服务器地址（IP:端口），需要你自己填写",
-    "host": "127.0.0.1:8317",
+    "host": "",
     "authorization_suffix_comment": "远端上传密码（Authorization Bearer 后面的内容），需要你自己填写",
-    "authorization_suffix": "请填写远端上传密码",
+    "authorization_suffix": "",
     "request_timeout_seconds_comment": "远端上传接口请求超时时间（秒）",
     "request_timeout_seconds": 30
   },
@@ -110,10 +109,10 @@
     "provider": "configured",
 
     "prefix_comment": "生成邮箱时使用的前缀，需要你自己填写（仅 configured 模式使用）",
-    "prefix": "test",
+    "prefix": "",
 
     "domain_comment": "生成邮箱时使用的域名，需要你自己填写",
-    "domain": "@example.com",
+    "domain": "",
 
     "min_index_comment": "邮箱编号最小值",
     "min_index": 1,

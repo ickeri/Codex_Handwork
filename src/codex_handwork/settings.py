@@ -1,7 +1,6 @@
 import json
 import shutil
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from PySide6.QtCore import QStandardPaths
 
@@ -38,9 +37,6 @@ def ensure_settings_file() -> None:
     if settings_file.exists():
         return
     settings_file.parent.mkdir(parents=True, exist_ok=True)
-    if LEGACY_SETTINGS_FILE.exists():
-        shutil.copyfile(LEGACY_SETTINGS_FILE, settings_file)
-        return
     if not SETTINGS_EXAMPLE_FILE.exists():
         raise FileNotFoundError("缺少 settings.json，且未找到 settings_example.json")
     shutil.copyfile(SETTINGS_EXAMPLE_FILE, settings_file)
